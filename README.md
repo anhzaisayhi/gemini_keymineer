@@ -1,66 +1,52 @@
-# Key Checker
+# Stabilized 10k+ RPS Google API Key Miner
 
-A fast, optimized Rust CLI tool to check the validity of Google API keys by testing them against the Google Maps Geocoding API.
-
-## Usage
-
-```bash
-cargo run -- --keys "AIzaSyDUSHGDs3JbC_w7oeExYkzVMA6OpJnUjbM AIzaSyBNMVbj1kCx2JkSQolohVUyLdGOiU3O7Is"
-```
-
-## Installation
-
-1. Ensure Rust is installed.
-2. Clone or download the project.
-3. Run `cargo build --release` to build the optimized binary.
+This is a high-performance, asynchronous tool written in Rust for discovering valid Google API keys. It is designed to be highly efficient, leveraging several advanced techniques to achieve a high rate of key validation checks.
 
 ## Features
 
-- Asynchronous checks for speed.
-- Parallel processing of multiple keys.
-- Robust error handling.
-- Simple CLI interface.
+*   **High Concurrency:** Utilizes `tokio` to perform thousands of parallel requests.
+*   **Optimized Performance:**
+    *   Uses `mimalloc` as the global allocator for improved memory management speed.
+    *   Implements a sharded client strategy, distributing requests across multiple pinned Google IP addresses to bypass rate limits and improve throughput.
+    *   Zero-allocation URL construction in the hot path.
+*   **Resumable Sessions:** Automatically saves progress to `checkpoint.json`, allowing you to stop and resume the mining process without losing your place.
+*   **Efficient Key Generation:** Generates unique, deterministic key candidates based on a permutation algorithm.
+*   **Real-time Statistics:** Displays the current search index, number of valid and invalid keys found, and the real-time check speed (keys/second).
+*   **Organized Output:** Saves successfully validated keys to `success_keys.txt`.
 
-## Troubleshooting
+## How It Works
 
-- If keys are invalid, ensure they are correct Google API keys with Maps API enabled.
-- Check internet connection for API requests.
-- For rate limits, add delays if needed (not implemented).
+1.  **Initialization:** The tool sets a high file descriptor limit and initializes a pool of `reqwest` clients, each pinned to a specific Google IP address. This "sharding" helps distribute the load.
+2.  **State Restoration:** It loads the last checked index and the generation seed from `checkpoint.json`. If the file doesn't exist, it starts a new session with a random seed.
+3.  **Key Generation:** A deterministic permutation algorithm generates a stream of potential 39-character API key candidates starting with `AIzaSy`.
+4.  **Asynchronous Validation:** The stream of keys is processed by a buffered, unordered pool of asynchronous tasks. Each task sends a request to the Google API using one of the sharded clients.
+5.  **Result Handling:**
+    *   If a key results in a `200 OK`, `403 Forbidden`, or `429 Too Many Requests` response, it is considered potentially valid and is saved.
+    *   Valid keys are written to `success_keys.txt`.
+    *   Statistics are continuously updated in the console.
+6.  **Checkpointing:** The current index is periodically saved to `checkpoint.json` to ensure the session can be resumed later.
 
-# Key Checker - Mining Mode
+## Requirements
 
-This tool continuously mines for valid Google API keys and saves them to `output.txt`.
-
-## Features
-
-- **Mining Mode**: Continuously checks keys in a loop.
-- **Output File**: Saves valid keys to `output.txt`.
-- **Customizable Delay**: Set delay between checks using `--delay`.
-- **Error Handling**: Handles API errors gracefully.
+*   [Rust](https://www.rust-lang.org/tools/install) programming language and Cargo package manager.
 
 ## Usage
 
-```bash
-cargo run -- --keys "key1 key2 key3" --delay 2
-```
+1.  **Build the project in release mode for maximum performance:**
+    ```bash
+    cargo build --release
+    ```
 
-- Replace `key1 key2 key3` with your API keys.
-- Use `--delay` to set the delay between checks (default: 1 second).
+2.  **Run the tool:**
+    ```bash
+    ./target/release/key_checker
+    ```
 
-## Output
+3.  **Specify the level of concurrency (default is 5000):**
+    ```bash
+    ./target/release/key_checker --parallel 10000
+    ```
 
-- Valid keys are appended to `output.txt` in the project directory.
+## Disclaimer
 
-## Installation
-
-1. Ensure Rust is installed.
-2. Clone or download the project.
-3. Run `cargo build --release` to build the optimized binary.
-
-## Troubleshooting
-
-- Ensure keys are valid Google API keys with Maps API enabled.
-- Check internet connection for API requests.
-- For rate limits, increase the delay using `--delay`.
-
-Happy mining!
+This tool is intended for educational and research purposes only. The use of this tool to find and use Google API keys may violate Google's terms of service. The author is not responsible for any misuse of this tool.
